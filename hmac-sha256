@@ -1,0 +1,52 @@
+#!/bin/bash
+
+BLOCK_SIZE=64
+
+if [ $# -ne 2 ]
+then
+    echo "Error."
+    exit 1
+fi
+
+keylength=$(echo -n $1 | wc -c)
+echo $keylength
+difflength=$(($BLOCK_SIZE - $keylength))
+echo $difflength
+
+if [ $keylength -gt $BLOCK_SIZE ]
+then
+    key=$(echo -n $1 | sha256sum)
+    key=${key:0:64}
+elif [ $keylength -lt $BLOCK_SIZE ]
+then
+    for (( i = 0; i < $difflength; i++ ))
+    do
+        key=${key}0 
+    done
+fi
+
+declare -a o_key_pad
+
+for (( i = 0; i < $BLOCK_SIZE; i+=2 ))
+do
+    o_key_pad[i]=$(( 0x5c ^ 0x${key:i:2} ))
+    outer=${outer}${o_key_pad[i]}
+done
+
+declare -a i_key_pad
+
+for (( i = 0; i < $BLOCK_SIZE; i+=2 ))
+do
+    i_key_pad[i]=$(( 0x36 ^ 0x${key:i:2} ))
+    inner=${inner}${i_key_pad[i]}
+done
+
+innerHashInput=${inner}$2
+
+outerHashInput=$(echo -n $innerHashInput | sha256sum)
+outerHashInput=${outerHashInput:0:64}
+
+result=$(echo -n ${outer}${outerHashInput} | sha256sum)
+result=${result:0:64}
+
+echo $result
